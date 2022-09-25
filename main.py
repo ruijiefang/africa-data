@@ -41,7 +41,7 @@ string_escaper = lambda ls: list(map(lambda x: '"' + x + '"', ls))
 # this leaves us data for the period 2000 - 2019
 row_transformer = lambda ls: ls[0:4] + ls[44:-2]
 # how many years present 
-how_many_years_present = lambda row: sum(map(lambda _: 1, filter(lambda entry: entry != '""', row)))
+how_many_years_present = lambda row: sum(map(lambda _: 1, filter(lambda entry: entry != '""' and entry != '', row[4:])))
 # form a file path
 path = lambda l: '/'.join(l)
 # get file name representing a WBI category
@@ -70,6 +70,7 @@ for category in canonicalized_indicators:
         indicators[row[2]] = []
     for row in category:
         # row[1] is 3-digit ISO country code
+        # print('how many years present for ', row[1], ': ', how_many_years_present(row))
         indicators[row[2]].append((row[1], how_many_years_present(row)))
 
 # rank indicators by quality of data (i.e. less # entries missing the better)
@@ -96,4 +97,6 @@ with open('indicators-scored-africa-sorted.csv', 'w') as fd:
 for category in canonicalized_indicators:
     with open('african-data-since2000-' + category[0] + '.csv', 'w') as fd:
         fd.writelines(list(map(lambda x: (', '.join(x)) + '\n', category[1])))
+
+
 
