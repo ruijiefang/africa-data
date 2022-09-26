@@ -207,10 +207,11 @@ class CombinedWBIndicator(WBIndicator):
         self.ind2 = ind2 
         self.combine_op = combine_op
         self.name = (ind1.name + combine_op.name + ind2.name)
+        super().__init__(self.name)
         for country in ind1.countries:
             ind1_row = ind1.countries[country]
             ind2_row = ind2.countries[country] if country in ind2.countries else None
-            self.countries.add(self.combine_op(ind1_row, ind2_row))
+            self.countries[country] = (self.combine_op(ind1_row, ind2_row))
 
 indicator1 = WBIndicator('"GDP per capita (current US$)"')
 indicator2 = WBIndicator('"GNI per capita, Atlas method (current US$)"')
@@ -223,18 +224,20 @@ indicatorA = WBIndicator('"Life expectancy at birth, total (years)"')
 indicatorB_numerator = WBIndicator('"Primary education, pupils"')
 indicatorB_denominator = WBIndicator('"Population ages 0-14 (% of total population)"')
 
+# some helper operations
+safety = lambda x, y, z:    \
+    x if y == None else     \
+        y if x == None else \
+            z(x, y)
+
 wbi_divider = CombineOperator("/", 
-    lambda x, y: 
-        x if y == None else 
-            y if x == None else 
-                [x[i] / y[i] for i in range(len(x))])
+    lambda x, y: safety(x, y, lambda x, y: [safety(x[i], y[i], lambda a, b: a / b) for i in range(len(x))]))
 
-indicatorB = CombinedWBIndicator(indicatorB_numerator, indicatorB_denominator, wbi_divider)
-
+# pipeline of indicators to process
 indicator_pipeline = [
     indicator1, indicator2, indicator3,
     indicator4, indicator5, indicator6, 
-    indicatorA, indicatorB, indicatorB_denominator]
+    indicatorA, indicatorB_numerator, indicatorB_denominator]
 
 wbi_row_canonicalizer = lambda ls: list(map(lambda x: None if x == '""' else float(x.strip('"')), ls))
 
@@ -245,6 +248,9 @@ for ind in indicator_pipeline:
             # row[2] is the category name
             if row[2] == ind.name:
                 ind.add(row[0], wbi_row_canonicalizer(row[4:]))
+
+# compute indicatorB last as we do eager computation
+indicatorB = CombinedWBIndicator(indicatorB_numerator, indicatorB_denominator, wbi_divider)
 
 indicator_pipeline[0].plot()
 
