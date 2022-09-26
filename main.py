@@ -85,10 +85,10 @@ for indicator in indicators:
 paired_indicators = [(i, indicator_score[i]) for i in indicator_score]
 paired_indicators.sort(key = lambda x: x[1], reverse=True)
 
-print("top 30 indicators: ")
-print(' name, score')
-for i in range(30):
-    print(paired_indicators[i][0], paired_indicators[i][1])
+# print("top 30 indicators: ")
+# print(' name, score')
+# for i in range(30):
+#    print(paired_indicators[i][0], paired_indicators[i][1])
 
 with open('indicators-scored-africa-sorted.csv', 'w') as fd:
     fd.writelines([', '.join(['"indicator name", "score"']) + '\n'])
@@ -99,4 +99,155 @@ for category in canonicalized_indicators:
         fd.writelines(list(map(lambda x: (', '.join(x)) + '\n', category[1])))
 
 
+###
+# graphing of indicators we selected
+# economic indicators
+# -------------------------
+# indicator 1: GDP per capita
+# indicator 2: GNI per capita
+# indicator 3: GDP total, current USD
+# indicator 4: GNI total, current USD
+# indicator 5: access to electricity, % of population
+# indicator 6: direct foreign investment 
+# political indicators
+# -------------------------
+# indicator A: life expectancy at birth (cumulative)
+# indicator B: access to education 
+
+#import plotly.express as px
+#df = px.data.gapminder().query("country=='Canada'")
+#fig = px.line(df, x="year", y="lifeExp", title='Life expectancy in Canada')
+#fig.show()
+import plotly.graph_objects as go
+
+"""
+import plotly.graph_objects as go
+
+# Create random data with numpy
+import numpy as np
+np.random.seed(1)
+
+N = 100
+random_x = np.linspace(0, 1, N)
+random_y0 = np.random.randn(N) + 5
+random_y1 = np.random.randn(N)
+random_y2 = np.random.randn(N) - 5
+
+fig = go.Figure()
+
+# Add traces
+fig.add_trace(go.Scatter(x=random_x, y=random_y0,
+                    mode='markers',
+                    name='markers'))
+fig.add_trace(go.Scatter(x=random_x, y=random_y1,
+                    mode='lines+markers',
+                    name='lines+markers'))
+fig.add_trace(go.Scatter(x=random_x, y=random_y2,
+                    mode='lines',
+                    name='lines'))
+
+fig.show()
+
+"""
+
+class WBIndicator(object):
+    """
+        The category of world bank indicators.
+    """
+    def __init__(self, name):
+        self.name = name
+        self.countries = {}
+    
+    def add(self, country_name, country_years):
+        self.countries[country_name] = country_years
+    
+    def plot(self):
+        fig = go.Figure() 
+        years = ['200' + str(x) for x in range(2020)]
+        for country in self.countries:
+            cs = go.Scatter(x = years, y = self.countries[country], mode='lines+markers', name=country)
+            fig.add_trace(cs)
+        fig.show()
+
+    def __str__(self):
+        acc = self.name + ' {\n'
+        for country in self.countries:
+            acc += '[ ' + country + ', ' + str(self.countries[country]) + ' ]\n'
+        acc += '}\n'
+        return acc 
+
+class CombineOperator(object):
+    """
+        The abstract product operation (X) on a pair of WBIndicators.
+    """
+    def __init__(self, name, op):
+        self.name = name 
+        self.op = op
+
+    def __str__(self):
+        return self.name
+
+    def __call__(self, r1, r2):
+        return self.op(r1, r2)
+
+class CombinedWBIndicator(WBIndicator):
+
+    """
+        The product functor on WBIndicators.
+
+        WBIndicator            WBIndicator
+                \               /
+                 \             /
+                 CombineOperator
+                        |
+                    WBIndicator
+    """
+    def __init__(self, ind1, ind2, combine_op):
+        self.ind1 = ind1 
+        self.ind2 = ind2 
+        self.combine_op = combine_op
+        self.name = (ind1.name + combine_op.name + ind2.name)
+        for country in ind1.countries:
+            ind1_row = ind1.countries[country]
+            ind2_row = ind2.countries[country] if country in ind2.countries else None
+            self.countries.add(self.combine_op(ind1_row, ind2_row))
+
+indicator1 = WBIndicator('"GDP per capita (current US$)"')
+indicator2 = WBIndicator('"GNI per capita, Atlas method (current US$)"')
+indicator3 = WBIndicator('"GDP (current US$)"')
+indicator4 = WBIndicator('"GNI, Atlas method (current US$)"')
+indicator5 = WBIndicator('"Access to electricity (% of population)"')
+indicator6 = WBIndicator('"Foreign direct investment, net (BoP, current US$)"')
+
+indicatorA = WBIndicator('"Life expectancy at birth, total (years)"')
+indicatorB_numerator = WBIndicator('"Primary education, pupils"')
+indicatorB_denominator = WBIndicator('"Population ages 0-14 (% of total population)"')
+
+wbi_divider = CombineOperator("/", 
+    lambda x, y: 
+        x if y == None else 
+            y if x == None else 
+                [x[i] / y[i] for i in range(len(x))])
+
+indicatorB = CombinedWBIndicator(indicatorB_numerator, indicatorB_denominator, wbi_divider)
+
+indicator_pipeline = [
+    indicator1, indicator2, indicator3,
+    indicator4, indicator5, indicator6, 
+    indicatorA, indicatorB, indicatorB_denominator]
+
+wbi_row_canonicalizer = lambda ls: list(map(lambda x: None if x == '""' else float(x.strip('"')), ls))
+
+for ind in indicator_pipeline:
+    for category in canonicalized_indicators:
+        category = category[1]
+        for row in category:
+            # row[2] is the category name
+            if row[2] == ind.name:
+                ind.add(row[0], wbi_row_canonicalizer(row[4:]))
+
+indicator_pipeline[0].plot()
+
+#for ind in indicator_pipeline:
+#    print(ind)
 
