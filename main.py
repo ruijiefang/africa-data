@@ -162,12 +162,20 @@ class WBIndicator(object):
         self.countries[country_name] = country_years
     
     def plot(self):
-        fig = go.Figure() 
+        fig = go.Figure() #layout_title_text=self.name) 
         years = ['200' + str(x) for x in range(2020)]
         for country in self.countries:
-            cs = go.Scatter(x = years, y = self.countries[country], mode='lines+markers', name=country)
+            cs = go.Scatter(x = years, y = self.countries[country], mode='lines+markers', name=country.strip('"'))
             fig.add_trace(cs)
+
+        fig.update_layout(legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1), xaxis_title = self.name.strip('"')) # hack to display title at the bottom
         fig.show()
+        #ig.show(renderer="png", width=8000, height=4000)
 
     def __str__(self):
         acc = self.name + ' {\n'
@@ -221,8 +229,10 @@ indicator5 = WBIndicator('"Access to electricity (% of population)"')
 indicator6 = WBIndicator('"Foreign direct investment, net (BoP, current US$)"')
 
 indicatorA = WBIndicator('"Life expectancy at birth, total (years)"')
-indicatorB_numerator = WBIndicator('"Primary education, pupils"')
-indicatorB_denominator = WBIndicator('"Population ages 0-14 (% of total population)"')
+#indicatorB_numerator = WBIndicator('"Primary education, pupils"')
+#indicatorB_denominator = WBIndicator('"Population ages 0-14 (% of total population)"')
+indicatorC = WBIndicator('"School enrollment, primary (% gross)"')
+
 
 # some helper operations
 safety = lambda x, y, z:    \
@@ -237,7 +247,7 @@ wbi_divider = CombineOperator("/",
 indicator_pipeline = [
     indicator1, indicator2, indicator3,
     indicator4, indicator5, indicator6, 
-    indicatorA, indicatorB_numerator, indicatorB_denominator]
+    indicatorA, indicatorC]
 
 wbi_row_canonicalizer = lambda ls: list(map(lambda x: None if x == '""' else float(x.strip('"')), ls))
 
@@ -250,10 +260,14 @@ for ind in indicator_pipeline:
                 ind.add(row[0], wbi_row_canonicalizer(row[4:]))
 
 # compute indicatorB last as we do eager computation
-indicatorB = CombinedWBIndicator(indicatorB_numerator, indicatorB_denominator, wbi_divider)
-
-indicator_pipeline[0].plot()
-
+#indicatorB = CombinedWBIndicator(indicatorB_numerator, indicatorB_denominator, wbi_divider)
+#indicatorB.name = "Number of primary education pupils normalized by population aged 0-14"
+#indicatorB.plot()
+#indicator_pipeline[-1].plot()
+#indicator_pipeline[0].plot()
+#indicator_pipeline[1].plot()
+for ind in indicator_pipeline:
+    ind.plot()
 #for ind in indicator_pipeline:
 #    print(ind)
 
